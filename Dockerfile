@@ -9,9 +9,9 @@ RUN go build -o /cpuburner ./cmd/cpuburner/main.go
 
 FROM golang:1.14.4-alpine
 
-COPY --from=builder /app/px-userwithcare /
-COPY --from=builder /memeater /bin
-COPY --from=builder /cpuburner /bin
+COPY --from=builder /app/px-usewithcare /
+COPY --from=builder /memeater ./bin
+COPY --from=builder /cpuburner ./bin
 
 
-ENTRYPOINT ./px-usewithcare
+ENTRYPOINT /px-usewithcare
