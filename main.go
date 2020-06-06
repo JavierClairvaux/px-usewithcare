@@ -1,57 +1,142 @@
 package main
 
 import (
-        "github.com/gorilla/mux"
-        "io"
-         "net/http"
-	 "bytes"
-	 "log"
-	 "time"
-	 "strconv"
-	 "runtime"
- )
+	"io"
+	"log"
+	"net/http"
+	"os"
+	//"runtime"
+	"strconv"
+	"syscall"
+	//"flag"
+	//"fmt"
+	//"time"
 
-func memGetHandler(res http.ResponseWriter, r *http.Request){
-         //vars := mux.Vars(r)
-         res.WriteHeader(http.StatusOK)
-         //io.WriteString(res, "dog dog dog")
-         io.WriteString(res, strconv.Itoa(runtime.NumGoroutine()))
-}
+	"github.com/gorilla/mux"
+)
 
-func memPutHandler(res http.ResponseWriter, r *http.Request){
-        //vars := mux.Vars(r)
-        val, _:= mux.Vars(r)["val"]
-        //res.WriteHeader(http.StatusOK)
-        io.WriteString(res, val)
-	memint, _ := strconv.Atoi(val)
-	go memEater( memint )
-        res.WriteHeader(http.StatusAccepted)
-}
-
-func memEater(val int) {
-
-	const n = 1000000
-	b1 := make([]byte, n, n)
-	b2 := make([]byte, n, n)
-	b3 := make([]byte, n, n)
-
-	w1, w2, w3 := bytes.NewBuffer(b1), bytes.NewBuffer(b2), bytes.NewBuffer(b3)
-	w := io.MultiWriter(w1, w2, w3)
-
-	for i := 0; i < val; i++ {
-		w.Write(make([]byte, n, n))
-	}
-
-	for {
-		time.Sleep(30 * time.Second)
-		log.Println("eater happy ..")
+var (
+	mem_tracking 	[]int
+	cpu_tracking 	[]int
+	numBurn		int
+	updateInterval 	int
+)
+//Mem functions
+func memGetHandler(res http.ResponseWriter, r *http.Request) {
+	res.WriteHeader(http.StatusOK)
+	if len(mem_tracking) == 1 {
+		io.WriteString(res, "memEater running!")
+	} else {
+		io.WriteString(res, "memEater not running!")
 	}
 }
 
+func cleanUpMemory(res http.ResponseWriter, r *http.Request) {
+	log.Println("Releasing mem")
+	for _, child := range mem_tracking {
+		syscall.Kill(child, syscall.SIGQUIT)
+	}
+
+	mem_tracking = nil
+	
+	io.WriteString(res, "mem released!")
+
+	res.WriteHeader(http.StatusAccepted)
+}
+
+func memPutHandler(res http.ResponseWriter, r *http.Request) {
+	val, _ := mux.Vars(r)["val"]
+
+	_, err := strconv.Atoi(val)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+
+	if len(mem_tracking) == 1 {
+		io.WriteString(res, "memEater running!")
+		return
+	}
+
+	binary := "./bin/memeater"
+	childPID, _ := syscall.ForkExec(binary, []string{binary, val}, &syscall.ProcAttr{
+		Dir: "./",
+		Env: os.Environ(),
+		Sys: &syscall.SysProcAttr{
+			Setsid: true,
+		},
+		Files: []uintptr{0, 1, 2}, // print message to the same pty
+	})
+	log.Printf("child %d", childPID)
+
+	if childPID != 0 {
+		mem_tracking = append(mem_tracking, childPID)
+	}
+
+	io.WriteString(res, "memEater started!")
+}
+
+//CPU burners functions
+func cpuBurnerHandler(res http.ResponseWriter, r *http.Request){
+	res.WriteHeader(http.StatusOK)
+	if len(cpu_tracking) == 1 {
+		io.WriteString(res, "cpuBurner running!")
+	} else {
+		io.WriteString(res, "cpuBurner not running!")
+	}
+
+}
+
+func cpuStartHandler(res http.ResponseWriter, r *http.Request){
+	if len(cpu_tracking) == 1 {
+		io.WriteString(res, "cpuBurner running!")
+		return
+	}
+
+	binary := "./bin/cpuburner"
+	childPID, _ := syscall.ForkExec(binary, []string{binary}, &syscall.ProcAttr{
+		Dir: "./",
+		Env: os.Environ(),
+		Sys: &syscall.SysProcAttr{
+			Setsid: true,
+		},
+		Files: []uintptr{0, 1, 2}, // print message to the same pty
+	})
+	log.Printf("child %d", childPID)
+
+	if childPID != 0 {
+		cpu_tracking = append(cpu_tracking, childPID)
+	}
+
+	io.WriteString(res, "cpuBurner started!")
+}
+
+
+func cpuStopHandler(res http.ResponseWriter, r *http.Request){
+	log.Println("Releasing CPU")
+	for _, child := range cpu_tracking {
+		syscall.Kill(child, syscall.SIGQUIT)
+	}
+
+	cpu_tracking = nil
+	
+	io.WriteString(res, "cpu released")
+
+	res.WriteHeader(http.StatusAccepted)
+}
 func main() {
-        r := mux.NewRouter()
-        r.HandleFunc("/memeater", memGetHandler).Methods("GET")
-        r.HandleFunc("/memeater/{val}", memPutHandler).Methods("PUT")
-        http.Handle("/", r)
-        http.ListenAndServe(":8080", r)
+	r := mux.NewRouter()
+
+	//mem handlers 
+	r.HandleFunc("/memeater", memGetHandler).Methods("GET")
+	r.HandleFunc("/memeater/{val}", memPutHandler).Methods("PUT")
+	r.HandleFunc("/memeater/free", cleanUpMemory).Methods("GET")
+
+	//CPU handlers
+	r.HandleFunc("/cpuburner", cpuBurnerHandler).Methods("GET")
+	r.HandleFunc("/cpuburner/start", cpuStartHandler).Methods("PUT")
+	r.HandleFunc("/cpuburner/stop", cpuStopHandler).Methods("GET")
+	http.Handle("/", r)
+	http.ListenAndServe(":8080", r)
 }
