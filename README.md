@@ -17,12 +17,12 @@ curl localhost:8080/memeater
 
 ### Run memEater
 ```
-curl -X PUT localhost:8080/memeater/<mem in MB>
+curl localhost:8080/memeater/start/<mem in MB>
 ```
 
 For example
 ```
-curl -X PUT localhost:8080/memeater/100
+curl localhost:8080/memeater/start/100
 ```
 
 ### Free memory
