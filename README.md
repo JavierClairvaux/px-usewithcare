@@ -2,12 +2,12 @@
 
 ### Pull image
 ```
-docker pull javier1/px-usewithcare:0.0.2
+docker pull javier1/px-usewithcare:0.0.3
 ```
 
 ### Run container
 ```
-docker run --rm  -p 8080:8080 --name test --oom-kill-disable --cpus=2 javier1/px-usewithcare:0.0.2
+docker run --rm  -p 8080:8080 --name test --oom-kill-disable --cpus=2 javier1/px-usewithcare:0.0.3
 ```
 
 ### Get memEater status
@@ -39,7 +39,7 @@ curl localhost:8080/cpuburner
 
 ### Start cpuBurner
 ```
-curl -X PUT localhost:8080/cpuburner/start
+curl localhost:8080/cpuburner/start
 ```
 
 ### Stop cpuBurner
