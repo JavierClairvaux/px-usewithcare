@@ -10,10 +10,8 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"runtime/debug"
 	"strconv"
-	"syscall"
 	"fmt"
 	"unsafe"
 
@@ -22,9 +20,6 @@ import (
 
 var (
 	mem_tracking   []chan bool
-	cpu_tracking   []int
-	numBurn        int
-	updateInterval int
 )
 
 //Mem functions
@@ -74,41 +69,6 @@ func (m *memEater) memPutHandler(res http.ResponseWriter, r *http.Request) {
 	res.WriteHeader(http.StatusAccepted)
 }
 
-//CPU burners functions
-func cpuBurnerHandler(res http.ResponseWriter, r *http.Request) {
-	res.WriteHeader(http.StatusOK)
-	if len(cpu_tracking) == 1 {
-		io.WriteString(res, "cpuBurner running!")
-	} else {
-		io.WriteString(res, "cpuBurner not running!")
-	}
-
-}
-
-func cpuStartHandler(res http.ResponseWriter, r *http.Request) {
-	if len(cpu_tracking) == 1 {
-		io.WriteString(res, "cpuBurner running!")
-		return
-	}
-
-	binary := "./bin/cpuburner"
-	childPID, _ := syscall.ForkExec(binary, []string{binary}, &syscall.ProcAttr{
-		Dir: "./",
-		Env: os.Environ(),
-		Sys: &syscall.SysProcAttr{
-			Setsid: true,
-		},
-		Files: []uintptr{0, 1, 2}, // print message to the same pty
-	})
-	log.Printf("child %d", childPID)
-
-	if childPID != 0 {
-		cpu_tracking = append(cpu_tracking, childPID)
-	}
-
-	io.WriteString(res, "cpuBurner started!")
-}
-
 type memEater struct{
 	echoOut *C.char
 }
@@ -123,21 +83,10 @@ func  memEaterJob(m *memEater, val int, signal chan bool) {
 	}
 }
 
-func cpuStopHandler(res http.ResponseWriter, r *http.Request) {
-	log.Println("Releasing CPU")
-	for _, child := range cpu_tracking {
-		syscall.Kill(child, syscall.SIGQUIT)
-	}
-
-	cpu_tracking = nil
-
-	io.WriteString(res, "cpu released")
-
-	res.WriteHeader(http.StatusAccepted)
-}
 func main() {
 	r := mux.NewRouter()
-	m:= memEater{}
+	m := memEater{}
+	c := cpuBurner{}
 
 	//mem handlers
 	r.HandleFunc("/memeater", m.memGetHandler).Methods("GET")
@@ -145,9 +94,9 @@ func main() {
 	r.HandleFunc("/memeater/free", m.cleanUpMemory).Methods("GET")
 
 	//CPU handlers
-	r.HandleFunc("/cpuburner", cpuBurnerHandler).Methods("GET")
-	r.HandleFunc("/cpuburner/start", cpuStartHandler).Methods("PUT")
-	r.HandleFunc("/cpuburner/stop", cpuStopHandler).Methods("GET")
+	r.HandleFunc("/cpuburner", c.cpuBurnerHandler).Methods("GET")
+	r.HandleFunc("/cpuburner/start", c.cpuStartHandler).Methods("GET")
+	r.HandleFunc("/cpuburner/stop", c.cpuStopHandler).Methods("GET")
 	http.Handle("/", r)
 	http.ListenAndServe(":8080", r)
 }
