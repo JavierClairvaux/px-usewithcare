@@ -1,4 +1,4 @@
-module px-usewithcare
+module github.com/JavierClairvaux/px-usewithcare
 
 go 1.14
 
