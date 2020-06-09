@@ -2,12 +2,12 @@
 
 ### Pull image
 ```
-docker pull javier1/px-usewithcare:0.0.1
+docker pull javier1/px-usewithcare:0.0.2
 ```
 
 ### Run container
 ```
-docker run --rm  -p 8080:8080 --name test --oom-kill-disable --cpus=2 javier1/px-usewithcare:0.0.1
+docker run --rm  -p 8080:8080 --name test --oom-kill-disable --cpus=2 javier1/px-usewithcare:0.0.2
 ```
 
 ### Get memEater status
