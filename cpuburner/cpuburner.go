@@ -1,99 +1,161 @@
 package cpuburner
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
-	"runtime"
-	"time"
-	"net/http"
+	"github.com/gorilla/mux"
+	"github.com/rs/xid"
 	"io"
 	"log"
+	"net/http"
+	"runtime"
+	"time"
 )
 
-var (
-	numBurn        int
-	updateInterval int
-	cpuTracking   []chan bool
-)
-
-func cpuBurn(c *CPUBurner, signal chan bool) {
+func cpuBurn(c *CPUBurner) {
 	for {
 		for i := 0; i < 2147483647; i++ {
 		}
 		runtime.Gosched()
-		if !c.running{
+		if !c.Running {
 			break
 		}
 	}
 }
 
-func init() {
-	flag.IntVar(&numBurn, "n", 0, "number of cores to burn (0 = all)")
-	flag.IntVar(&updateInterval, "u", 10, "seconds between updates (0 = don't update)")
-	flag.Parse()
-	if numBurn <= 0 {
-		numBurn = runtime.NumCPU()
+func cpuBurnerJob(c *CPUBurner) {
+	fmt.Printf("Burning %d CPUs/cores\n", c.NumBurn)
+	for i := 0; i < c.NumBurn; i++ {
+		go cpuBurn(c)
 	}
-}
-
-func cpuBurnerJob(c *CPUBurner, signal chan bool) {
-	runtime.GOMAXPROCS(numBurn)
-	fmt.Printf("Burning %d CPUs/cores\n", numBurn)
-	for i := 0; i < numBurn; i++ {
-		go cpuBurn(c, signal)
-	}
-	if updateInterval > 0 {
-		t := time.Tick(time.Duration(updateInterval) * time.Second)
-		for secs := updateInterval; ; secs += updateInterval {
-			if !c.running{
-				return
-			}
-			<-t
-			fmt.Printf("%d seconds\n", secs)
+	if c.UpdateInterval > 0 {
+		fmt.Printf("Sleeping %d miliseconds\n", c.UpdateInterval)
+		for start := time.Now(); time.Since(start) < time.Millisecond*time.Duration(c.UpdateInterval); {
 		}
+		c.NumBurn = 0
+		c.Running = false
+		c.UpdateInterval = 0
 	} else {
 		select {} // wait forever
 	}
 }
 
-type CPUBurner struct{
-	running bool
+type CPUBurner struct {
+	Running        bool   `json:"running"`
+	NumBurn        int    `json:"num_burn"`
+	UpdateInterval int    `json:"ttl"`
+	ID             string `json:"id,omitempty"`
+}
+
+type cParams struct {
+	Count int
+	TTL   int
+}
+
+//CPUBurnerHandler map for managing processes
+type CPUBurnerHandler struct {
+	cpuBurner map[string]*CPUBurner
+	id        xid.ID
+}
+
+//NewCPUBurnerHandler Handler that returns CPUBurnerHandler with new ID
+func NewCPUBurnerHandler() *CPUBurnerHandler {
+	guid := xid.New()
+
+	return &CPUBurnerHandler{
+		cpuBurner: map[string]*CPUBurner{},
+		id:        guid,
+	}
+}
+
+//RemoveStoppedJobs stopped jobs cleanner
+func (c *CPUBurnerHandler) RemoveStoppedJobs() {
+	go removeJobs(c)
+}
+
+func removeJobs(c *CPUBurnerHandler) {
+	for {
+		time.Sleep(1 * time.Second)
+		for _, cs := range c.cpuBurner {
+			if !cs.Running {
+				delete(c.cpuBurner, cs.ID)
+			}
+		}
+	}
 }
 
 //CPU burners handlers
-func (c *CPUBurner) CPUBurnerHandler(res http.ResponseWriter, r *http.Request) {
-	res.WriteHeader(http.StatusOK)
-	if len(cpuTracking) == 1 {
-		io.WriteString(res, "{'cpuBurner': 'started'}")
-	} else {
-		io.WriteString(res, "{'cpuBurner': 'stopped'}")
+//CPUBurnerHandler HTTP handler that returns cpuBurner state
+func (c *CPUBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Request) {
+	id, found := mux.Vars(r)["id"]
+	if !found {
+		res.WriteHeader(http.StatusNotFound)
+		res.Header().Set("Content-Type", "application/json")
+		io.WriteString(res, "{'error': 'id not found'}")
+		return
 	}
+	if cs, ok := c.cpuBurner[id]; ok {
+		data, err := json.Marshal(cs)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(data)
+		return
+	}
+	res.WriteHeader(http.StatusNotFound)
+	res.Header().Set("Content-Type", "application/json")
+	io.WriteString(res, "{'error': 'id not found'}")
 }
 
-func (c *CPUBurner) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
-	if len(cpuTracking) == 1 {
-		io.WriteString(res, "{'cpuBurner': 'started'}")
+//CPUStartHandler HTTP handler that starts cpuBurnerJob
+func (c *CPUBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	var p cParams
+	err := decoder.Decode(&p)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	signal := make(chan bool)
-
-	c.running = true
-	go cpuBurnerJob(c, signal)
-	cpuTracking = append(cpuTracking, signal)
-
-
-	io.WriteString(res, "{'cpuBurner': 'started'}")
+	cs := &CPUBurner{
+		Running:        true,
+		NumBurn:        p.Count,
+		UpdateInterval: p.TTL,
+		ID:             c.id.String(),
+	}
+	go cpuBurnerJob(cs)
+	c.cpuBurner[cs.ID] = cs
+	data, err := json.Marshal(*cs)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	res.Header().Set("Content-Type", "application/json")
+	res.Write(data)
 }
 
-func (c *CPUBurner) CPUStopHandler(res http.ResponseWriter, r *http.Request) {
+//CPUStopHandler HTTP handler that stops cpuBurnerJob
+func (c *CPUBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Request) {
 	log.Println("Releasing CPU")
-	c.running = false
-	for _, child := range cpuTracking {
-		close(child)
+	id, found := mux.Vars(r)["id"]
+	if !found {
+		res.WriteHeader(http.StatusNotFound)
+		res.Header().Set("Content-Type", "application/json")
+		io.WriteString(res, "{'error': 'id not found'}")
+		return
+	}
+	if cs, ok := c.cpuBurner[id]; ok {
+		cs.Running = false
+		cs.NumBurn = 0
+		cs.UpdateInterval = 0
+		delete(c.cpuBurner, id)
+		res.WriteHeader(http.StatusNoContent)
+		return
 	}
 
-	cpuTracking = nil
-	io.WriteString(res, "{'cpuBurner': 'stopped'}")
-	res.WriteHeader(http.StatusAccepted)
+	res.WriteHeader(http.StatusNotFound)
+	res.Header().Set("Content-Type", "application/json")
+	io.WriteString(res, "{'error': 'id not found'}")
 }
