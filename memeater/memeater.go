@@ -91,8 +91,8 @@ func (m *MemEaterHandler) MemPutHandler(res http.ResponseWriter, r *http.Request
 // MemEater struct where attibutes are managed
 type MemEater struct {
 	echoOut *C.char
-	Mem     int
-	ID      string
+	Mem     int    `json:"mem_mb"`
+	ID      string `json:"id",omitempty`
 }
 
 // MemEaterHandler for handling different MemEater
