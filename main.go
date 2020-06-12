@@ -10,19 +10,19 @@ import (
 
 func main() {
 	r := mux.NewRouter()
-	m := memeater.MemEater{}
+	m := memeater.NewMemEaterHandler()
 	c := cpuburner.NewCPUBurnerHandler()
 	c.RemoveStoppedJobs()
 
 	//mem handlers
-	r.HandleFunc("/memeater", m.MemGetHandler).Methods("GET")
-	r.HandleFunc("/memeater/start/{val}", m.MemPutHandler).Methods("GET")
-	r.HandleFunc("/memeater/free", m.CleanUpMemory).Methods("GET")
+	r.HandleFunc("/memeater/{id}", m.MemGetHandler).Methods("GET")
+	r.HandleFunc("/memeater", m.MemPutHandler).Methods("POST")
+	r.HandleFunc("/memeater/{id}", m.CleanUpMemory).Methods("DELETE")
 
 	//CPU handlers
 	r.HandleFunc("/cpuburner/{id}", c.CPUBurnerHandler).Methods("GET")
-	r.HandleFunc("/cpuburner/start", c.CPUStartHandler).Methods("POST")
-	r.HandleFunc("/cpuburner/stop/{id}", c.CPUStopHandler).Methods("DELETE")
+	r.HandleFunc("/cpuburner/", c.CPUStartHandler).Methods("POST")
+	r.HandleFunc("/cpuburner/{id}", c.CPUStopHandler).Methods("DELETE")
 	http.Handle("/", r)
 	http.ListenAndServe(":8080", r)
 }
