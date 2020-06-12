@@ -40,6 +40,7 @@ func cpuBurnerJob(c *CPUBurner) {
 	}
 }
 
+// CPUBurner struct where all the parameters are stored
 type CPUBurner struct {
 	Running        bool   `json:"running"`
 	NumBurn        int    `json:"num_burn"`
@@ -52,23 +53,20 @@ type cParams struct {
 	TTL   int
 }
 
-//CPUBurnerHandler map for managing processes
+// CPUBurnerHandler map for managing processes
 type CPUBurnerHandler struct {
 	cpuBurner map[string]*CPUBurner
-	id        xid.ID
 }
 
-//NewCPUBurnerHandler Handler that returns CPUBurnerHandler with new ID
+// NewCPUBurnerHandler Handler that returns CPUBurnerHandler with new ID
 func NewCPUBurnerHandler() *CPUBurnerHandler {
-	guid := xid.New()
 
 	return &CPUBurnerHandler{
 		cpuBurner: map[string]*CPUBurner{},
-		id:        guid,
 	}
 }
 
-//RemoveStoppedJobs stopped jobs cleanner
+// RemoveStoppedJobs stopped jobs cleanner
 func (c *CPUBurnerHandler) RemoveStoppedJobs() {
 	go removeJobs(c)
 }
@@ -84,8 +82,7 @@ func removeJobs(c *CPUBurnerHandler) {
 	}
 }
 
-//CPU burners handlers
-//CPUBurnerHandler HTTP handler that returns cpuBurner state
+// CPUBurnerHandler HTTP handler that returns cpuBurner state
 func (c *CPUBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Request) {
 	id, found := mux.Vars(r)["id"]
 	if !found {
@@ -109,7 +106,7 @@ func (c *CPUBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Req
 	io.WriteString(res, "{'error': 'id not found'}")
 }
 
-//CPUStartHandler HTTP handler that starts cpuBurnerJob
+// CPUStartHandler HTTP handler that starts cpuBurnerJob
 func (c *CPUBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var p cParams
@@ -123,7 +120,7 @@ func (c *CPUBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Requ
 		Running:        true,
 		NumBurn:        p.Count,
 		UpdateInterval: p.TTL,
-		ID:             c.id.String(),
+		ID:             xid.New().String(),
 	}
 	go cpuBurnerJob(cs)
 	c.cpuBurner[cs.ID] = cs
@@ -136,7 +133,7 @@ func (c *CPUBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Requ
 	res.Write(data)
 }
 
-//CPUStopHandler HTTP handler that stops cpuBurnerJob
+// CPUStopHandler HTTP handler that stops cpuBurnerJob
 func (c *CPUBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Request) {
 	log.Println("Releasing CPU")
 	id, found := mux.Vars(r)["id"]
