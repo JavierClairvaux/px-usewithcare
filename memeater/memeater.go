@@ -8,63 +8,111 @@ package memeater
 import "C"
 
 import (
+	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/rs/xid"
 	"io"
 	"log"
 	"net/http"
 	"runtime/debug"
-	"strconv"
 	"unsafe"
 )
 
-//Mem functions
-//MemGetHandler returns memEater state
-func (m *MemEater) MemGetHandler(res http.ResponseWriter, r *http.Request) {
-	if len(m.memTracking) == 1 {
-		io.WriteString(res, "{'memEater': 'started'}")
-	} else {
-		io.WriteString(res, "{'memEater': 'stopped'}")
+// MemGetHandler returns memEater state
+func (m *MemEaterHandler) MemGetHandler(res http.ResponseWriter, r *http.Request) {
+	id, found := mux.Vars(r)["id"]
+	if !found {
+		res.WriteHeader(http.StatusNotFound)
+		res.Header().Set("Content-Type", "application/json")
+		io.WriteString(res, "{'error': 'id not found'}")
+		return
 	}
+	if ms, ok := m.MemEater[id]; ok {
+		data, err := json.Marshal(ms)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(data)
+		return
+	}
+	res.WriteHeader(http.StatusNotFound)
+	res.Header().Set("Content-Type", "application/json")
+	io.WriteString(res, "{'error': 'id not found'}")
 }
 
 //CleanUpMemory stops memEaterJob and frees memory
-func (m *MemEater) CleanUpMemory(res http.ResponseWriter, r *http.Request) {
+func (m *MemEaterHandler) CleanUpMemory(res http.ResponseWriter, r *http.Request) {
 	log.Println("Releasing mem")
-	for _, child := range m.memTracking {
-		close(child)
-	}
-	m.memTracking = nil
-	io.WriteString(res, "{'memEater': 'stopped'}")
-	C.free(unsafe.Pointer(m.echoOut))
-	debug.FreeOSMemory()
-	res.WriteHeader(http.StatusAccepted)
-}
-
-//MemPutHandler starts memEaterJob receives a quantity of memory in mb and time
-func (m *MemEater) MemPutHandler(res http.ResponseWriter, r *http.Request) {
-	val, _ := mux.Vars(r)["val"]
-	iVal, err := strconv.Atoi(val)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(m.memTracking) == 1 {
-		io.WriteString(res, "{'memEater': 'started'}")
+	id, found := mux.Vars(r)["id"]
+	if !found {
+		res.WriteHeader(http.StatusNotFound)
+		res.Header().Set("Content-Type", "application/json")
+		io.WriteString(res, "{'error': 'id not found'}")
 		return
 	}
-	signal := make(chan bool)
-	go memEaterJob(m, iVal, signal)
-	m.memTracking = append(m.memTracking, signal)
-	io.WriteString(res, "{'memEater': 'started'}")
-	res.WriteHeader(http.StatusAccepted)
+	if ms, ok := m.MemEater[id]; ok {
+		C.free(unsafe.Pointer(ms.echoOut))
+		debug.FreeOSMemory()
+		delete(m.MemEater, id)
+		res.WriteHeader(http.StatusNoContent)
+		return
+	}
+	res.WriteHeader(http.StatusNotFound)
+	res.Header().Set("Content-Type", "application/json")
+	io.WriteString(res, "{'error': 'id not found'}")
 }
 
+// MemPutHandler starts memEaterJob receives a quantity of memory in mb and time
+func (m *MemEaterHandler) MemPutHandler(res http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	var mem memParams
+	err := decoder.Decode(&mem)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ms := &MemEater{
+		Mem: mem.MemMb,
+		ID:  xid.New().String(),
+	}
+	go memEaterJob(ms)
+	m.MemEater[ms.ID] = ms
+	data, err := json.Marshal(*ms)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	res.Header().Set("Content-Type", "application/json")
+	res.Write(data)
+}
+
+// MemEater struct where attibutes are managed
 type MemEater struct {
-	echoOut     *C.char
-	memTracking []chan bool
+	echoOut *C.char
+	Mem     int
+	ID      string
 }
 
-func memEaterJob(m *MemEater, val int, signal chan bool) {
-	cVal := C.int(val)
-	m.echoOut = C.cEater(cVal)
+// MemEaterHandler for handling different MemEater
+type MemEaterHandler struct {
+	MemEater map[string]*MemEater
+}
+
+type memParams struct {
+	MemMb int
+}
+
+// NewMemEaterHandler creates a new map of MemEaters
+func NewMemEaterHandler() *MemEaterHandler {
+
+	return &MemEaterHandler{
+		MemEater: map[string]*MemEater{},
+	}
+
+}
+
+func memEaterJob(m *MemEater) {
+	m.echoOut = C.cEater(C.int(m.Mem))
 }
