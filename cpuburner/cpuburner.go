@@ -71,13 +71,13 @@ func (c *cpuBurnerHandler) RemoveStoppedJobs() {
 }
 
 func removeJobs(c *cpuBurnerHandler) {
-	defer c.mutex.Unlock()
-	c.mutex.Lock()
 	for {
 		time.Sleep(1 * time.Second)
 		for _, cs := range c.cpuBurner {
 			if !cs.Running {
+				c.mutex.Lock()
 				delete(c.cpuBurner, cs.ID)
+				c.mutex.Unlock()
 			}
 		}
 	}
@@ -114,6 +114,7 @@ func (c *cpuBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Req
 func (c *cpuBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
+	fmt.Println("code got here")
 	decoder := json.NewDecoder(r.Body)
 	var p cParams
 	err := decoder.Decode(&p)
