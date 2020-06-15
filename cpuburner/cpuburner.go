@@ -25,7 +25,7 @@ func cpuBurn(c *CPUBurner) {
 }
 
 func cpuBurnerJob(c *CPUBurner) {
-	fmt.Printf("Burning %d CPUs/cores\n", c.NumBurn)
+	fmt.Printf("Burning %d CPUs/cow\n", c.NumBurn)
 	for i := 0; i < c.NumBurn; i++ {
 		go cpuBurn(c)
 	}
@@ -84,34 +84,33 @@ func removeJobs(c *cpuBurnerHandler) {
 }
 
 // CPUBurnerHandler HTTP handler that returns cpuBurner state
-func (c *cpuBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Request) {
+func (c *cpuBurnerHandler) CPUBurnerHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
-	//key, ok := r.URL.Query()["id"]
 	id, found := mux.Vars(r)["id"]
 	if !found {
-		res.WriteHeader(http.StatusNotFound)
-		res.Header().Set("Content-Type", "application/json")
-		io.WriteString(res, "{'error': 'id not found'}")
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, "{'error': 'id not found'}")
 		return
 	}
 	if cs, ok := c.cpuBurner[id]; ok {
 		data, err := json.Marshal(cs)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		res.Header().Set("Content-Type", "application/json")
-		res.Write(data)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
 		return
 	}
-	res.WriteHeader(http.StatusNotFound)
-	res.Header().Set("Content-Type", "application/json")
-	io.WriteString(res, "{'error': 'id not found'}")
+	w.WriteHeader(http.StatusNotFound)
+	w.Header().Set("Content-Type", "application/json")
+	io.WriteString(w, "{'error': 'id not found'}")
 }
 
 // CPUStartHandler HTTP handler that starts cpuBurnerJob
-func (c *cpuBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
+func (c *cpuBurnerHandler) CPUStartHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
 	fmt.Println("code got here")
@@ -119,7 +118,7 @@ func (c *cpuBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Requ
 	var p cParams
 	err := decoder.Decode(&p)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -133,23 +132,23 @@ func (c *cpuBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Requ
 	c.cpuBurner[cs.ID] = cs
 	data, err := json.Marshal(*cs)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	res.Header().Set("Content-Type", "application/json")
-	res.Write(data)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
 
 // CPUStopHandler HTTP handler that stops cpuBurnerJob
-func (c *cpuBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Request) {
+func (c *cpuBurnerHandler) CPUStopHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
 	log.Println("Releasing CPU")
 	id, found := mux.Vars(r)["id"]
 	if !found {
-		res.WriteHeader(http.StatusNotFound)
-		res.Header().Set("Content-Type", "application/json")
-		io.WriteString(res, "{'error': 'id not found'}")
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, "{'error': 'id not found'}")
 		return
 	}
 	if cs, ok := c.cpuBurner[id]; ok {
@@ -157,11 +156,11 @@ func (c *cpuBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Reque
 		cs.NumBurn = 0
 		cs.TTL = 0
 		delete(c.cpuBurner, id)
-		res.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	res.WriteHeader(http.StatusNotFound)
-	res.Header().Set("Content-Type", "application/json")
-	io.WriteString(res, "{'error': 'id not found'}")
+	w.WriteHeader(http.StatusNotFound)
+	w.Header().Set("Content-Type", "application/json")
+	io.WriteString(w, "{'error': 'id not found'}")
 }
