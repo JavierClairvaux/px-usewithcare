@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -28,14 +29,12 @@ func cpuBurnerJob(c *CPUBurner) {
 	for i := 0; i < c.NumBurn; i++ {
 		go cpuBurn(c)
 	}
-	if c.TTL > 0 {
-		fmt.Printf("Sleeping %d miliseconds\n", c.TTL)
-		for start := time.Now(); time.Since(start) < time.Millisecond*time.Duration(c.TTL); {
-		}
-		c.NumBurn = 0
-		c.Running = false
-		c.TTL = 0
+	fmt.Printf("Sleeping %d miliseconds\n", c.TTL)
+	for start := time.Now(); time.Since(start) < time.Millisecond*time.Duration(c.TTL); {
 	}
+	c.NumBurn = 0
+	c.Running = false
+	c.TTL = 0
 }
 
 // CPUBurner struct where all the parameters are stored
@@ -53,6 +52,7 @@ type cParams struct {
 
 // CPUBurnerHandler map for managing processes
 type cpuBurnerHandler struct {
+	mutex     sync.Mutex
 	cpuBurner map[string]*CPUBurner
 }
 
@@ -60,7 +60,8 @@ type cpuBurnerHandler struct {
 func NewCPUBurnerHandler() *cpuBurnerHandler {
 
 	return &cpuBurnerHandler{
-		make(map[string]*CPUBurner),
+		cpuBurner: make(map[string]*CPUBurner),
+		mutex:     sync.Mutex{},
 	}
 }
 
@@ -70,6 +71,8 @@ func (c *cpuBurnerHandler) RemoveStoppedJobs() {
 }
 
 func removeJobs(c *cpuBurnerHandler) {
+	defer c.mutex.Unlock()
+	c.mutex.Lock()
 	for {
 		time.Sleep(1 * time.Second)
 		for _, cs := range c.cpuBurner {
@@ -82,6 +85,9 @@ func removeJobs(c *cpuBurnerHandler) {
 
 // CPUBurnerHandler HTTP handler that returns cpuBurner state
 func (c *cpuBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Request) {
+	defer c.mutex.Unlock()
+	c.mutex.Lock()
+	//key, ok := r.URL.Query()["id"]
 	id, found := mux.Vars(r)["id"]
 	if !found {
 		res.WriteHeader(http.StatusNotFound)
@@ -106,6 +112,8 @@ func (c *cpuBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Req
 
 // CPUStartHandler HTTP handler that starts cpuBurnerJob
 func (c *cpuBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
+	defer c.mutex.Unlock()
+	c.mutex.Lock()
 	decoder := json.NewDecoder(r.Body)
 	var p cParams
 	err := decoder.Decode(&p)
@@ -133,6 +141,8 @@ func (c *cpuBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Requ
 
 // CPUStopHandler HTTP handler that stops cpuBurnerJob
 func (c *cpuBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Request) {
+	defer c.mutex.Unlock()
+	c.mutex.Lock()
 	log.Println("Releasing CPU")
 	id, found := mux.Vars(r)["id"]
 	if !found {
