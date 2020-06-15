@@ -35,8 +35,6 @@ func cpuBurnerJob(c *CPUBurner) {
 		c.NumBurn = 0
 		c.Running = false
 		c.UpdateInterval = 0
-	} else {
-		select {} // wait forever
 	}
 }
 
