@@ -9,8 +9,9 @@ import "C"
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/rs/xid"
+	"github.com/satori/go.uuid"
 	"io"
 	"log"
 	"net/http"
@@ -20,11 +21,16 @@ import (
 
 // MemGetHandler returns memEater state
 func (m *MemEaterHandler) MemGetHandler(res http.ResponseWriter, r *http.Request) {
-	id, found := mux.Vars(r)["id"]
+	idRaw, found := mux.Vars(r)["id"]
 	if !found {
 		res.WriteHeader(http.StatusNotFound)
 		res.Header().Set("Content-Type", "application/json")
 		io.WriteString(res, "{'error': 'id not found'}")
+		return
+	}
+	id, err := uuid.FromString(idRaw)
+	if err != nil {
+		fmt.Printf("Something wend wrong: %s", err)
 		return
 	}
 	if ms, ok := m.MemEater[id]; ok {
@@ -45,11 +51,16 @@ func (m *MemEaterHandler) MemGetHandler(res http.ResponseWriter, r *http.Request
 //CleanUpMemory stops memEaterJob and frees memory
 func (m *MemEaterHandler) CleanUpMemory(res http.ResponseWriter, r *http.Request) {
 	log.Println("Releasing mem")
-	id, found := mux.Vars(r)["id"]
+	idRaw, found := mux.Vars(r)["id"]
 	if !found {
 		res.WriteHeader(http.StatusNotFound)
 		res.Header().Set("Content-Type", "application/json")
 		io.WriteString(res, "{'error': 'id not found'}")
+		return
+	}
+	id, err := uuid.FromString(idRaw)
+	if err != nil {
+		fmt.Printf("Something went wrong: %s", err)
 		return
 	}
 	if ms, ok := m.MemEater[id]; ok {
@@ -75,7 +86,7 @@ func (m *MemEaterHandler) MemPutHandler(res http.ResponseWriter, r *http.Request
 	}
 	ms := &MemEater{
 		Mem: mem.MemMb,
-		ID:  xid.New().String(),
+		ID:  uuid.NewV4(),
 	}
 	go memEaterJob(ms)
 	m.MemEater[ms.ID] = ms
@@ -91,13 +102,13 @@ func (m *MemEaterHandler) MemPutHandler(res http.ResponseWriter, r *http.Request
 // MemEater struct where attibutes are managed
 type MemEater struct {
 	echoOut *C.char
-	Mem     int    `json:"mem_mb"`
-	ID      string `json:"id",omitempty`
+	Mem     int       `json:"mem_mb"`
+	ID      uuid.UUID `json:"id",omitempty`
 }
 
 // MemEaterHandler for handling different MemEater
 type MemEaterHandler struct {
-	MemEater map[string]*MemEater
+	MemEater map[uuid.UUID]*MemEater
 }
 
 type memParams struct {
@@ -108,7 +119,7 @@ type memParams struct {
 func NewMemEaterHandler() *MemEaterHandler {
 
 	return &MemEaterHandler{
-		MemEater: map[string]*MemEater{},
+		MemEater: map[uuid.UUID]*MemEater{},
 	}
 
 }
