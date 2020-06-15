@@ -52,24 +52,24 @@ type cParams struct {
 }
 
 // CPUBurnerHandler map for managing processes
-type CPUBurnerHandler struct {
+type cpuBurnerHandler struct {
 	cpuBurner map[string]*CPUBurner
 }
 
-// NewCPUBurnerHandler Handler that returns CPUBurnerHandler with new ID
-func NewCPUBurnerHandler() *CPUBurnerHandler {
+// NewCPUBurnerHandler Handler that returns cpuBurnerHandler with new ID
+func NewCPUBurnerHandler() *cpuBurnerHandler {
 
-	return &CPUBurnerHandler{
+	return &cpuBurnerHandler{
 		cpuBurner: map[string]*CPUBurner{},
 	}
 }
 
 // RemoveStoppedJobs stopped jobs cleanner
-func (c *CPUBurnerHandler) RemoveStoppedJobs() {
+func (c *cpuBurnerHandler) RemoveStoppedJobs() {
 	go removeJobs(c)
 }
 
-func removeJobs(c *CPUBurnerHandler) {
+func removeJobs(c *cpuBurnerHandler) {
 	for {
 		time.Sleep(1 * time.Second)
 		for _, cs := range c.cpuBurner {
@@ -81,7 +81,7 @@ func removeJobs(c *CPUBurnerHandler) {
 }
 
 // CPUBurnerHandler HTTP handler that returns cpuBurner state
-func (c *CPUBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Request) {
+func (c *cpuBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Request) {
 	id, found := mux.Vars(r)["id"]
 	if !found {
 		res.WriteHeader(http.StatusNotFound)
@@ -105,7 +105,7 @@ func (c *CPUBurnerHandler) CPUBurnerHandler(res http.ResponseWriter, r *http.Req
 }
 
 // CPUStartHandler HTTP handler that starts cpuBurnerJob
-func (c *CPUBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
+func (c *cpuBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var p cParams
 	err := decoder.Decode(&p)
@@ -132,7 +132,7 @@ func (c *CPUBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Requ
 }
 
 // CPUStopHandler HTTP handler that stops cpuBurnerJob
-func (c *CPUBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Request) {
+func (c *cpuBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Request) {
 	log.Println("Releasing CPU")
 	id, found := mux.Vars(r)["id"]
 	if !found {
