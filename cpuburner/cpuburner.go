@@ -28,22 +28,22 @@ func cpuBurnerJob(c *CPUBurner) {
 	for i := 0; i < c.NumBurn; i++ {
 		go cpuBurn(c)
 	}
-	if c.UpdateInterval > 0 {
-		fmt.Printf("Sleeping %d miliseconds\n", c.UpdateInterval)
-		for start := time.Now(); time.Since(start) < time.Millisecond*time.Duration(c.UpdateInterval); {
+	if c.TTL > 0 {
+		fmt.Printf("Sleeping %d miliseconds\n", c.TTL)
+		for start := time.Now(); time.Since(start) < time.Millisecond*time.Duration(c.TTL); {
 		}
 		c.NumBurn = 0
 		c.Running = false
-		c.UpdateInterval = 0
+		c.TTL = 0
 	}
 }
 
 // CPUBurner struct where all the parameters are stored
 type CPUBurner struct {
-	Running        bool   `json:"running"`
-	NumBurn        int    `json:"num_burn"`
-	UpdateInterval int    `json:"ttl"`
-	ID             string `json:"id,omitempty"`
+	Running bool   `json:"running"`
+	NumBurn int    `json:"num_burn"`
+	TTL     int    `json:"ttl"`
+	ID      string `json:"id,omitempty"`
 }
 
 type cParams struct {
@@ -115,10 +115,10 @@ func (c *CPUBurnerHandler) CPUStartHandler(res http.ResponseWriter, r *http.Requ
 	}
 
 	cs := &CPUBurner{
-		Running:        true,
-		NumBurn:        p.Count,
-		UpdateInterval: p.TTL,
-		ID:             xid.New().String(),
+		Running: true,
+		NumBurn: p.Count,
+		TTL:     p.TTL,
+		ID:      xid.New().String(),
 	}
 	go cpuBurnerJob(cs)
 	c.cpuBurner[cs.ID] = cs
@@ -144,7 +144,7 @@ func (c *CPUBurnerHandler) CPUStopHandler(res http.ResponseWriter, r *http.Reque
 	if cs, ok := c.cpuBurner[id]; ok {
 		cs.Running = false
 		cs.NumBurn = 0
-		cs.UpdateInterval = 0
+		cs.TTL = 0
 		delete(c.cpuBurner, id)
 		res.WriteHeader(http.StatusNoContent)
 		return
