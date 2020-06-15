@@ -21,7 +21,7 @@ func main() {
 
 	//CPU handlers
 	r.HandleFunc("/cpuburner/{id}", c.CPUBurnerHandler).Methods("GET")
-	r.HandleFunc("/cpuburner/", c.CPUStartHandler).Methods("POST")
+	r.HandleFunc("/cpuburner", c.CPUStartHandler).Methods("POST")
 	r.HandleFunc("/cpuburner/{id}", c.CPUStopHandler).Methods("DELETE")
 	http.Handle("/", r)
 	http.ListenAndServe(":8080", r)
