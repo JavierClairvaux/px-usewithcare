@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/rs/xid"
+	"github.com/satori/go.uuid"
 	"io"
 	"log"
 	"net/http"
@@ -39,10 +39,10 @@ func cpuBurnerJob(c *CPUBurner) {
 
 // CPUBurner struct where all the parameters are stored
 type CPUBurner struct {
-	Running bool   `json:"running"`
-	NumBurn int    `json:"num_burn"`
-	TTL     int    `json:"ttl"`
-	ID      string `json:"id,omitempty"`
+	Running bool      `json:"running"`
+	NumBurn int       `json:"num_burn"`
+	TTL     int       `json:"ttl"`
+	ID      uuid.UUID `json:"id,omitempty"`
 }
 
 type cParams struct {
@@ -53,14 +53,14 @@ type cParams struct {
 // CPUBurnerHandler map for managing processes
 type cpuBurnerHandler struct {
 	mutex     sync.Mutex
-	cpuBurner map[string]*CPUBurner
+	cpuBurner map[uuid.UUID]*CPUBurner
 }
 
 // NewCPUBurnerHandler Handler that returns cpuBurnerHandler with new ID
 func NewCPUBurnerHandler() *cpuBurnerHandler {
 
 	return &cpuBurnerHandler{
-		cpuBurner: make(map[string]*CPUBurner),
+		cpuBurner: make(map[uuid.UUID]*CPUBurner),
 		mutex:     sync.Mutex{},
 	}
 }
@@ -87,11 +87,16 @@ func removeJobs(c *cpuBurnerHandler) {
 func (c *cpuBurnerHandler) CPUBurnerHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
-	id, found := mux.Vars(r)["id"]
+	idRaw, found := mux.Vars(r)["id"]
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, "{'error': 'id not found'}")
+		return
+	}
+	id, err := uuid.FromString(idRaw)
+	if err != nil {
+		fmt.Printf("Something went wrong: %s", err)
 		return
 	}
 	if cs, ok := c.cpuBurner[id]; ok {
@@ -126,7 +131,7 @@ func (c *cpuBurnerHandler) CPUStartHandler(w http.ResponseWriter, r *http.Reques
 		Running: true,
 		NumBurn: p.Count,
 		TTL:     p.TTL,
-		ID:      xid.New().String(),
+		ID:      uuid.NewV4(),
 	}
 	go cpuBurnerJob(cs)
 	c.cpuBurner[cs.ID] = cs
@@ -144,11 +149,16 @@ func (c *cpuBurnerHandler) CPUStopHandler(w http.ResponseWriter, r *http.Request
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
 	log.Println("Releasing CPU")
-	id, found := mux.Vars(r)["id"]
+	idRaw, found := mux.Vars(r)["id"]
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, "{'error': 'id not found'}")
+		return
+	}
+	id, err := uuid.FromString(idRaw)
+	if err != nil {
+		fmt.Printf("Something went wrong: %s", err)
 		return
 	}
 	if cs, ok := c.cpuBurner[id]; ok {
