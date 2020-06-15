@@ -9,13 +9,16 @@ import "C"
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/rs/xid"
 	"io"
 	"log"
 	"net/http"
+	"runtime"
 	"runtime/debug"
-	"unsafe"
+	//"time"
+	//"unsafe"
 )
 
 // MemGetHandler returns memEater state
@@ -53,8 +56,12 @@ func (m *MemEaterHandler) CleanUpMemory(res http.ResponseWriter, r *http.Request
 		return
 	}
 	if ms, ok := m.MemEater[id]; ok {
-		C.free(unsafe.Pointer(ms.echoOut))
+		//C.free(unsafe.Pointer(ms.echoOut))
+		fmt.Println("releasing memory")
+		runtime.GC()
 		debug.FreeOSMemory()
+		ms.b = nil
+		//debug.FreeOSMemory()
 		delete(m.MemEater, id)
 		res.WriteHeader(http.StatusNoContent)
 		return
@@ -93,6 +100,7 @@ type MemEater struct {
 	echoOut *C.char
 	Mem     int    `json:"mem_mb"`
 	ID      string `json:"id",omitempty`
+	b       []byte
 }
 
 // MemEaterHandler for handling different MemEater
@@ -114,5 +122,21 @@ func NewMemEaterHandler() *MemEaterHandler {
 }
 
 func memEaterJob(m *MemEater) {
-	m.echoOut = C.cEater(C.int(m.Mem))
+	//m.echoOut = C.cEater(C.int(m.Mem))
+	fmt.Println("starting")
+	fmt.Println("eating memory")
+	size := m.Mem * 1024 * 1024
+	// eat 128 mb of memory
+	//b := make([]byte, m.Mem*1024*1024)
+	m.b = make([]byte, m.Mem*1024*1024)
+	_ = m.b
+	for i := 0; i < size; i++ {
+		m.b[i] = byte(i)
+	}
+	//time.Sleep(10 * time.Second)
+	//fmt.Println("releasing memory")
+	//runtime.GC()
+	//debug.FreeOSMemory()
+	//b = nil
+
 }
