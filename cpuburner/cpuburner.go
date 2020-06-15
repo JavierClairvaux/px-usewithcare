@@ -3,6 +3,7 @@ package cpuburner
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JavierClairvaux/px-usewithcare/util"
 	"github.com/gorilla/mux"
 	"github.com/satori/go.uuid"
 	"io"
@@ -91,7 +92,11 @@ func (c *cpuBurnerHandler) CPUBurnerHandler(w http.ResponseWriter, r *http.Reque
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, "{'error': 'id not found'}")
+		data, err := util.GetHTTPError("ID not found")
+		if err != nil {
+			log.Fatalf("Cannot serialize error %s", err.Error())
+		}
+		w.Write(data)
 		return
 	}
 	id, err := uuid.FromString(idRaw)
@@ -103,6 +108,7 @@ func (c *cpuBurnerHandler) CPUBurnerHandler(w http.ResponseWriter, r *http.Reque
 		data, err := json.Marshal(cs)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			io.WriteString(w, "Failed to serialize output!")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -111,14 +117,17 @@ func (c *cpuBurnerHandler) CPUBurnerHandler(w http.ResponseWriter, r *http.Reque
 	}
 	w.WriteHeader(http.StatusNotFound)
 	w.Header().Set("Content-Type", "application/json")
-	io.WriteString(w, "{'error': 'id not found'}")
+	data, err := util.GetHTTPError("ID not found")
+	if err != nil {
+		log.Fatalf("Cannot serialize error %s", err.Error())
+	}
+	w.Write(data)
 }
 
 // CPUStartHandler HTTP handler that starts cpuBurnerJob
 func (c *cpuBurnerHandler) CPUStartHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
-	fmt.Println("code got here")
 	decoder := json.NewDecoder(r.Body)
 	var p cParams
 	err := decoder.Decode(&p)
@@ -153,7 +162,11 @@ func (c *cpuBurnerHandler) CPUStopHandler(w http.ResponseWriter, r *http.Request
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, "{'error': 'id not found'}")
+		data, err := util.GetHTTPError("ID not found")
+		if err != nil {
+			log.Fatalf("Cannot serialize error %s", err.Error())
+		}
+		w.Write(data)
 		return
 	}
 	id, err := uuid.FromString(idRaw)
@@ -172,5 +185,9 @@ func (c *cpuBurnerHandler) CPUStopHandler(w http.ResponseWriter, r *http.Request
 
 	w.WriteHeader(http.StatusNotFound)
 	w.Header().Set("Content-Type", "application/json")
-	io.WriteString(w, "{'error': 'id not found'}")
+	data, err := util.GetHTTPError("ID not found")
+	if err != nil {
+		log.Fatalf("Cannot serialize error %s", err.Error())
+	}
+	w.Write(data)
 }
