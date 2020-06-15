@@ -59,8 +59,11 @@ type cpuBurnerHandler struct {
 // NewCPUBurnerHandler Handler that returns cpuBurnerHandler with new ID
 func NewCPUBurnerHandler() *cpuBurnerHandler {
 
+	//return &cpuBurnerHandler{
+	//	cpuBurner: map[string]*CPUBurner{},
+	//}
 	return &cpuBurnerHandler{
-		cpuBurner: map[string]*CPUBurner{},
+		make(map[string]*CPUBurner),
 	}
 }
 
