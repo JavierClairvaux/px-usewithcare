@@ -20,12 +20,12 @@ import (
 )
 
 // MemGetHandler returns memEater state
-func (m *MemEaterHandler) MemGetHandler(res http.ResponseWriter, r *http.Request) {
+func (m *MemEaterHandler) MemGetHandler(w http.ResponseWriter, r *http.Request) {
 	idRaw, found := mux.Vars(r)["id"]
 	if !found {
-		res.WriteHeader(http.StatusNotFound)
-		res.Header().Set("Content-Type", "application/json")
-		io.WriteString(res, "{'error': 'id not found'}")
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, "{'error': 'id not found'}")
 		return
 	}
 	id, err := uuid.FromString(idRaw)
@@ -36,26 +36,26 @@ func (m *MemEaterHandler) MemGetHandler(res http.ResponseWriter, r *http.Request
 	if ms, ok := m.MemEater[id]; ok {
 		data, err := json.Marshal(ms)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		res.Header().Set("Content-Type", "application/json")
-		res.Write(data)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
 		return
 	}
-	res.WriteHeader(http.StatusNotFound)
-	res.Header().Set("Content-Type", "application/json")
-	io.WriteString(res, "{'error': 'id not found'}")
+	w.WriteHeader(http.StatusNotFound)
+	w.Header().Set("Content-Type", "application/json")
+	io.WriteString(w, "{'error': 'id not found'}")
 }
 
 //CleanUpMemory stops memEaterJob and frees memory
-func (m *MemEaterHandler) CleanUpMemory(res http.ResponseWriter, r *http.Request) {
+func (m *MemEaterHandler) CleanUpMemory(w http.ResponseWriter, r *http.Request) {
 	log.Println("Releasing mem")
 	idRaw, found := mux.Vars(r)["id"]
 	if !found {
-		res.WriteHeader(http.StatusNotFound)
-		res.Header().Set("Content-Type", "application/json")
-		io.WriteString(res, "{'error': 'id not found'}")
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, "{'error': 'id not found'}")
 		return
 	}
 	id, err := uuid.FromString(idRaw)
@@ -67,21 +67,21 @@ func (m *MemEaterHandler) CleanUpMemory(res http.ResponseWriter, r *http.Request
 		C.free(unsafe.Pointer(ms.echoOut))
 		debug.FreeOSMemory()
 		delete(m.MemEater, id)
-		res.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	res.WriteHeader(http.StatusNotFound)
-	res.Header().Set("Content-Type", "application/json")
-	io.WriteString(res, "{'error': 'id not found'}")
+	w.WriteHeader(http.StatusNotFound)
+	w.Header().Set("Content-Type", "application/json")
+	io.WriteString(w, "{'error': 'id not found'}")
 }
 
 // MemPutHandler starts memEaterJob receives a quantity of memory in mb and time
-func (m *MemEaterHandler) MemPutHandler(res http.ResponseWriter, r *http.Request) {
+func (m *MemEaterHandler) MemPutHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var mem memParams
 	err := decoder.Decode(&mem)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ms := &MemEater{
@@ -92,11 +92,11 @@ func (m *MemEaterHandler) MemPutHandler(res http.ResponseWriter, r *http.Request
 	m.MemEater[ms.ID] = ms
 	data, err := json.Marshal(*ms)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	res.Header().Set("Content-Type", "application/json")
-	res.Write(data)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
 
 // MemEater struct where attibutes are managed
