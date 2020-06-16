@@ -10,43 +10,74 @@ docker pull javier1/px-usewithcare:0.0.3
 docker run --rm  -p 8080:8080 --name test --oom-kill-disable --cpus=2 javier1/px-usewithcare:0.0.3
 ```
 
-### Get memEater status
+### Start a memEater
 ```
-curl localhost:8080/memeater
+$ curl -X POST -d "{\"memMb\": 100}" localhost:8080/memeater
+{"mem_mb":100,"id":"2286d6fd-9ce5-424f-b7ba-62ce9b22495b"}
+```
+Where memMb is the load of memory in MBs.
+
+### Get a memEater status
+```
+$ curl localhost:8080/memeater/<ID from the first stop>
 ```
 
-### Run memEater
+For example:
 ```
-curl localhost:8080/memeater/start/<mem in MB>
-```
-
-For example
-```
-curl localhost:8080/memeater/start/100
+$ curl localhost:8080/memeater/ed8b4c7e-8338-4792-b2b3-de9a5c2177e5
+{"mem_mb":100,"id":"ed8b4c7e-8338-4792-b2b3-de9a5c2177e5"}
 ```
 
-### Free memory
+### Stop a memEater
 ```
-curl localhost:8080/memeater/free
-```
-
-To increase or decrease memory usage it is necessary to free memory and start memEater again since there can only be one memEater process at the time.
-
-### Get cpuBurner status
-```
-curl localhost:8080/cpuburner
+$ curl -X DELETE localhost:8080/memeater/<ID from the first steop>
 ```
 
-### Start cpuBurner
+For example:
 ```
-curl localhost:8080/cpuburner/start
+$ curl -X DELETE localhost:8080/memeater/ed8b4c7e-8338-4792-b2b3-de9a5c2177e5
+```
+
+### Get a list of active memEaters
+```
+curl localhost:8080/memeaters
+{"IDs":["ed8b4c7e-8338-4792-b2b3-de9a5c2177e5","2286d6fd-9ce5-424f-b7ba-62ce9b22495b"]}
+```
+
+### Start a cpuBurner
+
+```
+$ curl -X POST -d "{\"count\": 1, \"ttl\": 500000}" localhost:8080/cpuburner
+{"running":true,"num_burn":1,"ttl":500000,"id":"80c3f0e4-25f5-4bbe-93ab-4f86a7f371a2"}
+```
+Where count is the number of cores you want to burn and ttl is the Time To Live in miliseconds.
+
+### Get a cpuBurners status
+
+```
+$ curl localhost:8080/cpuburner/<ID from the first step>
+```
+
+For example:
+```
+$ curl localhost:8080/cpuburner/80c3f0e4-25f5-4bbe-93ab-4f86a7f371a2
+{"running":true,"num_burn":1,"ttl":500000,"id":"80c3f0e4-25f5-4bbe-93ab-4f86a7f371a2"}
 ```
 
 ### Stop cpuBurner
+
 ```
-curl localhost:8080/cpuburner/stop
+$ curl -X DELETE localhost:8080/cpuburner/<ID from the first step>
 ```
 
-There can only be one cpuBurner process at the time.
+For example:
+```
+$ curl -X DELETE localhost:8080/cpuburner/80c3f0e4-25f5-4bbe-93ab-4f86a7f371a2
+```
 
+### List all existing cpuBurners
+```
+$ curl localhost:8080/cpuburners
+{"IDs":["ee9d9ab9-6563-45ba-823a-330827403b90","b04c0db8-dbe4-4bd5-ac4b-270cc3f6007e"]}
+```
 You can find the container [here.](https://hub.docker.com/repository/docker/javier1/px-usewithcare)
