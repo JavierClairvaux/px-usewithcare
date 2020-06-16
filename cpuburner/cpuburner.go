@@ -51,7 +51,6 @@ type cParams struct {
 	TTL   int
 }
 
-// CPUBurnerHandler map for managing processes
 type cpuBurnerHandler struct {
 	mutex     sync.Mutex
 	cpuBurner map[uuid.UUID]*CPUBurner
@@ -192,6 +191,7 @@ func (c *cpuBurnerHandler) CPUStopHandler(w http.ResponseWriter, r *http.Request
 	w.Write(data)
 }
 
+// CPUListHandler returns a list of active CPU burners
 func (c *cpuBurnerHandler) CPUListHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.mutex.Unlock()
 	c.mutex.Lock()
