@@ -16,11 +16,14 @@ import (
 	"log"
 	"net/http"
 	"runtime/debug"
+	"sync"
 	"unsafe"
 )
 
 // MemGetHandler returns memEater state
-func (m *MemEaterHandler) MemGetHandler(w http.ResponseWriter, r *http.Request) {
+func (m *memEaterHandler) MemGetHandler(w http.ResponseWriter, r *http.Request) {
+	defer m.mutex.Unlock()
+	m.mutex.Lock()
 	idRaw, found := mux.Vars(r)["id"]
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
@@ -57,7 +60,9 @@ func (m *MemEaterHandler) MemGetHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 //CleanUpMemory stops memEaterJob and frees memory
-func (m *MemEaterHandler) CleanUpMemory(w http.ResponseWriter, r *http.Request) {
+func (m *memEaterHandler) CleanUpMemory(w http.ResponseWriter, r *http.Request) {
+	defer m.mutex.Unlock()
+	m.mutex.Lock()
 	log.Println("Releasing mem")
 	idRaw, found := mux.Vars(r)["id"]
 	if !found {
@@ -92,7 +97,9 @@ func (m *MemEaterHandler) CleanUpMemory(w http.ResponseWriter, r *http.Request) 
 }
 
 // MemPutHandler starts memEaterJob receives a quantity of memory in mb and time
-func (m *MemEaterHandler) MemPutHandler(w http.ResponseWriter, r *http.Request) {
+func (m *memEaterHandler) MemPutHandler(w http.ResponseWriter, r *http.Request) {
+	defer m.mutex.Unlock()
+	m.mutex.Lock()
 	decoder := json.NewDecoder(r.Body)
 	var mem memParams
 	err := decoder.Decode(&mem)
@@ -123,8 +130,9 @@ type MemEater struct {
 }
 
 // MemEaterHandler for handling different MemEater
-type MemEaterHandler struct {
+type memEaterHandler struct {
 	MemEater map[uuid.UUID]*MemEater
+	mutex    sync.Mutex
 }
 
 type memParams struct {
@@ -132,10 +140,11 @@ type memParams struct {
 }
 
 // NewMemEaterHandler creates a new map of MemEaters
-func NewMemEaterHandler() *MemEaterHandler {
+func NewMemEaterHandler() *memEaterHandler {
 
-	return &MemEaterHandler{
+	return &memEaterHandler{
 		MemEater: map[uuid.UUID]*MemEater{},
+		mutex:    sync.Mutex{},
 	}
 
 }
