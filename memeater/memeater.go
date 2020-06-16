@@ -153,6 +153,7 @@ func memEaterJob(m *MemEater) {
 	m.echoOut = C.cEater(C.int(m.Mem))
 }
 
+// MemListHandler returns a list of IDs of the active memEaters
 func (m *memEaterHandler) MemListHandler(w http.ResponseWriter, r *http.Request) {
 	defer m.mutex.Unlock()
 	m.mutex.Lock()
