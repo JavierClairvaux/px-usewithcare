@@ -10,9 +10,9 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JavierClairvaux/px-usewithcare/util"
 	"github.com/gorilla/mux"
 	"github.com/satori/go.uuid"
-	"io"
 	"log"
 	"net/http"
 	"runtime/debug"
@@ -25,7 +25,11 @@ func (m *MemEaterHandler) MemGetHandler(w http.ResponseWriter, r *http.Request) 
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, "{'error': 'id not found'}")
+		data, err := util.GetHTTPError("ID not found")
+		if err != nil {
+			log.Fatalf("Cannot serialize error %s", err.Error())
+		}
+		w.Write(data)
 		return
 	}
 	id, err := uuid.FromString(idRaw)
@@ -45,7 +49,11 @@ func (m *MemEaterHandler) MemGetHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	w.WriteHeader(http.StatusNotFound)
 	w.Header().Set("Content-Type", "application/json")
-	io.WriteString(w, "{'error': 'id not found'}")
+	data, err := util.GetHTTPError("ID not found")
+	if err != nil {
+		log.Fatalf("Cannot serialize error %s", err.Error())
+	}
+	w.Write(data)
 }
 
 //CleanUpMemory stops memEaterJob and frees memory
@@ -55,7 +63,11 @@ func (m *MemEaterHandler) CleanUpMemory(w http.ResponseWriter, r *http.Request) 
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, "{'error': 'id not found'}")
+		data, err := util.GetHTTPError("ID not found")
+		if err != nil {
+			log.Fatalf("Cannot serialize error %s", err.Error())
+		}
+		w.Write(data)
 		return
 	}
 	id, err := uuid.FromString(idRaw)
@@ -72,7 +84,11 @@ func (m *MemEaterHandler) CleanUpMemory(w http.ResponseWriter, r *http.Request) 
 	}
 	w.WriteHeader(http.StatusNotFound)
 	w.Header().Set("Content-Type", "application/json")
-	io.WriteString(w, "{'error': 'id not found'}")
+	data, err := util.GetHTTPError("ID not found")
+	if err != nil {
+		log.Fatalf("Cannot serialize error %s", err.Error())
+	}
+	w.Write(data)
 }
 
 // MemPutHandler starts memEaterJob receives a quantity of memory in mb and time
