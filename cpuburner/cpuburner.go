@@ -203,7 +203,7 @@ func (c *cpuBurnerHandler) CPUListHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	data, err := util.GetIDs(s)
 	if err != nil {
-		log.Fatalf("Cannot serialize error %s", err.Error())
+		log.Fatalf("Cannot serialize list %s", err.Error())
 	}
 	w.Write(data)
 }
