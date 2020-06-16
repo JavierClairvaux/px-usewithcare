@@ -17,6 +17,7 @@ func main() {
 	//mem handlers
 	r.HandleFunc("/memeater/{id}", m.MemGetHandler).Methods("GET")
 	r.HandleFunc("/memeater", m.MemPutHandler).Methods("POST")
+	r.HandleFunc("/memeaters", m.MemListHandler).Methods("GET")
 	r.HandleFunc("/memeater/{id}", m.CleanUpMemory).Methods("DELETE")
 
 	//CPU handlers

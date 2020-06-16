@@ -152,3 +152,19 @@ func NewMemEaterHandler() *memEaterHandler {
 func memEaterJob(m *MemEater) {
 	m.echoOut = C.cEater(C.int(m.Mem))
 }
+
+func (m *memEaterHandler) MemListHandler(w http.ResponseWriter, r *http.Request) {
+	defer m.mutex.Unlock()
+	m.mutex.Lock()
+	log.Println("Listing active eaters")
+	var s []string
+	for _, ms := range m.MemEater {
+		s = append(s, ms.ID.String())
+	}
+	w.Header().Set("Content-Type", "application/json")
+	data, err := util.GetIDs(s)
+	if err != nil {
+		log.Fatalf("Cannot serialize list %s", err.Error())
+	}
+	w.Write(data)
+}
