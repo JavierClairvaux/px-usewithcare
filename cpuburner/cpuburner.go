@@ -191,3 +191,19 @@ func (c *cpuBurnerHandler) CPUStopHandler(w http.ResponseWriter, r *http.Request
 	}
 	w.Write(data)
 }
+
+func (c *cpuBurnerHandler) CPUListHandler(w http.ResponseWriter, r *http.Request) {
+	defer c.mutex.Unlock()
+	c.mutex.Lock()
+	log.Println("Listing active burners")
+	var s []string
+	for _, cs := range c.cpuBurner {
+		s = append(s, cs.ID.String())
+	}
+	w.Header().Set("Content-Type", "application/json")
+	data, err := util.GetIDs(s)
+	if err != nil {
+		log.Fatalf("Cannot serialize error %s", err.Error())
+	}
+	w.Write(data)
+}
