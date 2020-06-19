@@ -1,30 +1,28 @@
 package main
 
 import (
-	"github.com/JavierClairvaux/px-usewithcare/cpuburner"
-	"github.com/JavierClairvaux/px-usewithcare/memeater"
 	"net/http"
+
+	"github.com/JavierClairvaux/px-usewithcare/cpu"
+	memory "github.com/JavierClairvaux/px-usewithcare/memory"
+
+	"github.com/JavierClairvaux/px-usewithcare/handler"
 
 	"github.com/gorilla/mux"
 )
 
 func main() {
 	r := mux.NewRouter()
-	m := memeater.NewMemEaterHandler()
-	c := cpuburner.NewCPUBurnerHandler()
-	c.RemoveStoppedJobs()
 
-	//mem handlers
-	r.HandleFunc("/memeater/{id}", m.MemGetHandler).Methods("GET")
-	r.HandleFunc("/memeater", m.MemPutHandler).Methods("POST")
-	r.HandleFunc("/memeaters", m.MemListHandler).Methods("GET")
-	r.HandleFunc("/memeater/{id}", m.CleanUpMemory).Methods("DELETE")
+	c := handler.NewBurnerHandler(cpu.NewBurner)
+	m := handler.NewBurnerHandler(memory.NewBurner)
 
-	//CPU handlers
-	r.HandleFunc("/cpuburner/{id}", c.CPUBurnerHandler).Methods("GET")
-	r.HandleFunc("/cpuburner", c.CPUStartHandler).Methods("POST")
-	r.HandleFunc("/cpuburners", c.CPUListHandler).Methods("GET")
-	r.HandleFunc("/cpuburner/{id}", c.CPUStopHandler).Methods("DELETE")
+	// handle cpu burner
+	handler.HandlePaths("cpuburner", c, r)
+
+	//handle memeater
+	handler.HandlePaths("memeater", m, r)
+
 	http.Handle("/", r)
 	http.ListenAndServe(":8080", r)
 }

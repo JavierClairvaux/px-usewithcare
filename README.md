@@ -47,10 +47,10 @@ curl localhost:8080/memeaters
 ### Start a cpuBurner
 
 ```
-$ curl -X POST -d "{\"count\": 1, \"ttl\": 500000}" localhost:8080/cpuburner
+$ curl -X POST -d "{\"num_burn\": 1, \"ttl\": 500000}" localhost:8080/cpuburner
 {"running":true,"num_burn":1,"ttl":500000,"id":"80c3f0e4-25f5-4bbe-93ab-4f86a7f371a2"}
 ```
-Where count is the number of cores you want to burn and ttl is the Time To Live in miliseconds.
+Where num_burn is the number of cores you want to burn and ttl is the Time To Live in miliseconds.
 
 ### Get a cpuBurners status
 

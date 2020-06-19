@@ -1,6 +1,8 @@
 package util
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // HTTPError struct for error serializable HTTP response
 type HTTPError struct {
@@ -18,12 +20,4 @@ func GetHTTPError(s string) ([]byte, error) {
 		Error: s,
 	}
 	return json.Marshal(h)
-}
-
-// GetIDs returns a marshaled json from a string list
-func GetIDs(s []string) ([]byte, error) {
-	i := &IDs{
-		IDs: s,
-	}
-	return json.Marshal(i)
 }
