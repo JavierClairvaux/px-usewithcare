@@ -41,11 +41,6 @@ func (e Eater) ID() uuid.UUID {
 	return e.UUID
 }
 
-// IsRunning returns wether the Eater is running or not
-func (e Eater) IsRunning() bool {
-	return e.Running
-}
-
 // Start eats the specified number of memory on the Eater struct
 func (e *Eater) Start() {
 	e.echoOut = C.cEater(C.int(e.Mem))
@@ -55,5 +50,4 @@ func (e *Eater) Start() {
 func (e *Eater) Stop() {
 	C.free(unsafe.Pointer(e.echoOut))
 	debug.FreeOSMemory()
-	e.Running = false
 }

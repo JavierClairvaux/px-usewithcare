@@ -46,7 +46,7 @@ func (c *Burner) ID() uuid.UUID {
 }
 
 // IsRunning checks if the TTL is over or if the Burner has been stopped
-func (c *Burner) IsRunning() bool {
+func (c *Burner) isRunning() bool {
 	start := time.Now()
 	isDone := time.Since(start) < time.Millisecond*time.Duration(c.TTL)
 	return isDone && c.Running
@@ -62,7 +62,7 @@ func (c *Burner) Start() {
 	}
 
 	fmt.Printf("Sleeping %d miliseconds\n", c.TTL)
-	for c.IsRunning() {
+	for c.isRunning() {
 	}
 
 	c.Stop()

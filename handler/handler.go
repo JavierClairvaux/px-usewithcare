@@ -18,7 +18,6 @@ import (
 type Burner interface {
 	Start()
 	Stop()
-	IsRunning() bool
 	ID() uuid.UUID
 }
 
