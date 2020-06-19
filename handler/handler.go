@@ -27,19 +27,19 @@ type NewBurner func(io.ReadCloser) (Burner, error)
 
 // BurnerHandler is an HTTP Handler that manages a Burner
 type BurnerHandler struct {
-	instances map[uuid.UUID]Burner
+	instances *sync.Map
 	NewBurner NewBurner
-	mutex     sync.Mutex
+	delete    chan uuid.UUID
 }
 
 // NewBurnerHandler returns a new instance of a BurnerHandler
 func NewBurnerHandler(f NewBurner) *BurnerHandler {
 
 	c := &BurnerHandler{
-		instances: make(map[uuid.UUID]Burner),
-		mutex:     sync.Mutex{},
+		instances: &sync.Map{},
 		NewBurner: f,
 	}
+	c.delete = make(chan uuid.UUID)
 	c.MonitorStoppedJobs()
 	return c
 }
@@ -51,21 +51,15 @@ func (c *BurnerHandler) MonitorStoppedJobs() {
 
 func removeJobs(c *BurnerHandler) {
 	for {
-		for _, cs := range c.instances {
-			c.mutex.Lock()
-			if !cs.IsRunning() {
-				log.Printf("Deleting Job with ID %s", cs.ID().String())
-				delete(c.instances, cs.ID())
-			}
-			c.mutex.Unlock()
+		select {
+		case b := <-c.delete:
+			c.instances.Delete(b)
 		}
 	}
 }
 
 // StartHandler HTTP handler that starts Burner
 func (c *BurnerHandler) StartHandler(w http.ResponseWriter, r *http.Request) {
-	defer c.mutex.Unlock()
-	c.mutex.Lock()
 
 	burner, err := c.NewBurner(r.Body)
 	if err != nil {
@@ -73,8 +67,21 @@ func (c *BurnerHandler) StartHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, loaded := c.instances.LoadOrStore(burner.ID(), burner)
+	if loaded {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		data, err := util.GetHTTPError("could not store the burner")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(data)
+		return
+	}
+
 	go burner.Start()
-	c.instances[burner.ID()] = burner
+
 	data, err := json.Marshal(burner)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -86,8 +93,7 @@ func (c *BurnerHandler) StartHandler(w http.ResponseWriter, r *http.Request) {
 
 // StopHandler HTTP handler that stops Burner
 func (c *BurnerHandler) StopHandler(w http.ResponseWriter, r *http.Request) {
-	defer c.mutex.Unlock()
-	c.mutex.Lock()
+
 	idRaw, found := mux.Vars(r)["id"]
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
@@ -105,8 +111,10 @@ func (c *BurnerHandler) StopHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Something went wrong: %s", err)
 		return
 	}
-	if cs, ok := c.instances[id]; ok {
-		cs.Stop()
+	if cs, ok := c.instances.Load(id); ok {
+		b := cs.(Burner)
+		b.Stop()
+		c.delete <- b.ID()
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -122,8 +130,7 @@ func (c *BurnerHandler) StopHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetHandler HTTP handler that returns the Burner state
 func (c *BurnerHandler) GetHandler(w http.ResponseWriter, r *http.Request) {
-	defer c.mutex.Unlock()
-	c.mutex.Lock()
+
 	idRaw, found := mux.Vars(r)["id"]
 	if !found {
 		w.WriteHeader(http.StatusNotFound)
@@ -140,7 +147,7 @@ func (c *BurnerHandler) GetHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Invalid UUID: %s", err)
 		return
 	}
-	if cs, ok := c.instances[id]; ok {
+	if cs, ok := c.instances.Load(id); ok {
 		data, err := json.Marshal(cs)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -162,13 +169,15 @@ func (c *BurnerHandler) GetHandler(w http.ResponseWriter, r *http.Request) {
 
 // ListHandler returns a list of active CPU burners
 func (c *BurnerHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
-	defer c.mutex.Unlock()
-	c.mutex.Lock()
+
 	log.Println("Listing active burners")
 	s := []Burner{}
-	for _, cs := range c.instances {
-		s = append(s, cs)
-	}
+
+	c.instances.Range(func(key interface{}, value interface{}) bool {
+		s = append(s, value.(Burner))
+		return true
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(s)
 	if err != nil {
