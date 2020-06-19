@@ -2,13 +2,13 @@ package cpu
 
 import (
 	"encoding/json"
+	"runtime"
 
 	"github.com/JavierClairvaux/px-usewithcare/handler"
 	uuid "github.com/satori/go.uuid"
 
 	"fmt"
 	"io"
-	"runtime"
 	"time"
 )
 
@@ -54,16 +54,13 @@ func (c *Burner) Start() {
 	fmt.Printf("Burning %d CPUs/cow\n", c.NumBurn)
 
 	for i := 0; i < c.NumBurn; i++ {
-		go cpuBurn(c.chans[i], i)
-		c.chans[i] <- true
+		go cpuBurn(c.chans[i])
 	}
+
 	fmt.Printf("Sleeping %d miliseconds\n", c.TTL)
 	for c.IsRunning() {
-		for i := range c.chans {
-			c.chans[i] <- true
-
-		}
 	}
+
 	c.Stop()
 }
 
@@ -72,17 +69,23 @@ func (c *Burner) Stop() {
 	c.Running = false
 
 	for i := range c.chans {
-		c.chans[i] <- false
+		c.chans[i] <- true
 	}
 
 	c.NumBurn = 0
 	c.TTL = 0
 }
 
-func cpuBurn(cont chan bool, i int) {
-	for <-cont {
-		for i := 0; i < 2147483647; i++ {
+func cpuBurn(cont chan bool) {
+	for {
+		select {
+		case <-cont:
+			return
+		default:
+			for i := 0; i < 2147483647; i++ {
+			}
+			runtime.Gosched()
 		}
-		runtime.Gosched()
+
 	}
 }
