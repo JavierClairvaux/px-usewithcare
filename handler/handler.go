@@ -7,13 +7,14 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/JavierClairvaux/px-usewithcare/util"
+	"github.com/gertd/go-pluralize"
 	"github.com/gorilla/mux"
 	uuid "github.com/satori/go.uuid"
 )
 
+// Burner is an interface that defines the behaviour of the burners
 type Burner interface {
 	Start()
 	Stop()
@@ -21,14 +22,17 @@ type Burner interface {
 	ID() uuid.UUID
 }
 
+// NewBurner is a type function to return a new instance of a Burner
 type NewBurner func(io.ReadCloser) (Burner, error)
 
+// BurnerHandler is an HTTP Handler that manages a Burner
 type BurnerHandler struct {
 	instances map[uuid.UUID]Burner
 	NewBurner NewBurner
 	mutex     sync.Mutex
 }
 
+// NewBurnerHandler returns a new instance of a BurnerHandler
 func NewBurnerHandler(f NewBurner) *BurnerHandler {
 
 	c := &BurnerHandler{
@@ -47,14 +51,13 @@ func (c *BurnerHandler) MonitorStoppedJobs() {
 
 func removeJobs(c *BurnerHandler) {
 	for {
-		time.Sleep(1 * time.Second)
 		for _, cs := range c.instances {
+			c.mutex.Lock()
 			if !cs.IsRunning() {
-				c.mutex.Lock()
 				log.Printf("Deleting Job with ID %s", cs.ID().String())
 				delete(c.instances, cs.ID())
-				c.mutex.Unlock()
 			}
+			c.mutex.Unlock()
 		}
 	}
 }
@@ -91,7 +94,8 @@ func (c *BurnerHandler) StopHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		data, err := util.GetHTTPError("ID not found")
 		if err != nil {
-			log.Fatalf("Cannot serialize error %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		w.Write(data)
 		return
@@ -173,10 +177,12 @@ func (c *BurnerHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// HandlePaths sets the paths for each of the functions of a BurnerHandler
 func HandlePaths(path string, h *BurnerHandler, r *mux.Router) {
+	pluralize := pluralize.NewClient()
+
 	r.HandleFunc(fmt.Sprintf("/%s/{id}", path), h.GetHandler).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s", path), h.StartHandler).Methods("POST")
-	// this function would need to a pluralizer, but I don't think is worth to add it for now
-	r.HandleFunc(fmt.Sprintf("/%ss", path), h.ListHandler).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s", pluralize.Plural(path)), h.ListHandler).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/{id}", path), h.StopHandler).Methods("DELETE")
 }
