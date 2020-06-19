@@ -3,6 +3,7 @@ package cpu
 import (
 	"encoding/json"
 	"runtime"
+	"sync"
 
 	"github.com/JavierClairvaux/px-usewithcare/handler"
 	uuid "github.com/satori/go.uuid"
@@ -19,6 +20,7 @@ type Burner struct {
 	TTL     int       `json:"ttl"`
 	UUID    uuid.UUID `json:"id,omitempty"`
 	chans   []chan bool
+	wg      *sync.WaitGroup
 }
 
 // NewBurner returns a new Burner
@@ -33,17 +35,18 @@ func NewBurner(body io.ReadCloser) (handler.Burner, error) {
 	for i := range c.chans {
 		c.chans[i] = make(chan bool)
 	}
+	c.wg = &sync.WaitGroup{}
 
 	return &c, err
 }
 
 // ID returns the ID of the Burner
-func (c Burner) ID() uuid.UUID {
+func (c *Burner) ID() uuid.UUID {
 	return c.UUID
 }
 
 // IsRunning checks if the TTL is over or if the Burner has been stopped
-func (c Burner) IsRunning() bool {
+func (c *Burner) IsRunning() bool {
 	start := time.Now()
 	isDone := time.Since(start) < time.Millisecond*time.Duration(c.TTL)
 	return isDone && c.Running
@@ -52,9 +55,10 @@ func (c Burner) IsRunning() bool {
 // Start runs the given number of goroutines to burn a the specified CPUs
 func (c *Burner) Start() {
 	fmt.Printf("Burning %d CPUs/cow\n", c.NumBurn)
+	c.wg.Add(c.NumBurn)
 
 	for i := 0; i < c.NumBurn; i++ {
-		go cpuBurn(c.chans[i])
+		go cpuBurn(c.chans[i], c, i)
 	}
 
 	fmt.Printf("Sleeping %d miliseconds\n", c.TTL)
@@ -66,20 +70,22 @@ func (c *Burner) Start() {
 
 // Stop stops the Burner
 func (c *Burner) Stop() {
-	c.Running = false
 
 	for i := range c.chans {
 		c.chans[i] <- true
 	}
+	c.wg.Wait()
+	c.Running = false
 
-	c.NumBurn = 0
-	c.TTL = 0
 }
 
-func cpuBurn(cont chan bool) {
+func cpuBurn(cont chan bool, c *Burner, id int) {
+	fmt.Printf("Running goroutine %d for Burner %s\n", id, c.ID().String())
 	for {
 		select {
 		case <-cont:
+			c.wg.Done()
+			fmt.Printf("Stopping goroutine %d for Burner %s\n", id, c.ID().String())
 			return
 		default:
 			for i := 0; i < 2147483647; i++ {
