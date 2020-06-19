@@ -40,22 +40,7 @@ func NewBurnerHandler(f NewBurner) *BurnerHandler {
 		NewBurner: f,
 	}
 	c.delete = make(chan uuid.UUID)
-	c.MonitorStoppedJobs()
 	return c
-}
-
-// MonitorStoppedJobs monitors and cleans stopped jobs
-func (c *BurnerHandler) MonitorStoppedJobs() {
-	go removeJobs(c)
-}
-
-func removeJobs(c *BurnerHandler) {
-	for {
-		select {
-		case b := <-c.delete:
-			c.instances.Delete(b)
-		}
-	}
 }
 
 // StartHandler HTTP handler that starts Burner
@@ -114,7 +99,7 @@ func (c *BurnerHandler) StopHandler(w http.ResponseWriter, r *http.Request) {
 	if cs, ok := c.instances.Load(id); ok {
 		b := cs.(Burner)
 		b.Stop()
-		c.delete <- b.ID()
+		c.instances.Delete(b)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
