@@ -4,6 +4,5 @@ RUN mkdir /app
 ADD . /app
 WORKDIR /app
 RUN go build
-RUN go build -o /bin/cpuburner ./cmd/cpuburner/main.go
 
 ENTRYPOINT ./px-usewithcare
